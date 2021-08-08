@@ -1,0 +1,3 @@
+# pip install -r requirements.txt
+adafruit-circuitpython-rplidar==1.2.1
+
