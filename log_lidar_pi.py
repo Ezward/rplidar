@@ -196,7 +196,7 @@ if __name__ == "__main__":
                 break
 
     except KeyboardInterrupt:
-        print('Stoping early.')
+        print('Stopping early.')
     except Exception as e:
         print(e)
         exit(1)
