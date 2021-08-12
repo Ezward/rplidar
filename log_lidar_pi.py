@@ -73,7 +73,7 @@ def bisect_right(a, x, lo=0, hi=None, *, key=None):
 
 
 
-def filter_lidar_scan(scan, min_angle = 0, max_angle = 360, min_distance = sys.float_info.min, max_distance = sys.float_info.max, sorted=False):
+def filter_lidar_scan(scan, min_angle = 0, max_angle = 360, min_distance = sys.float_info.min, max_distance = sys.float_info.max, forward_angle = 0.0, reverse_spin = False, sorted=False):
     nearest_distance = None
     nearest_angle = None
     nearest_x = None
@@ -87,6 +87,13 @@ def filter_lidar_scan(scan, min_angle = 0, max_angle = 360, min_distance = sys.f
     filtered_data = []
 
     for (_, angle, distance) in scan:
+        # rplidar spins clockwise, but we want angles to increase counter-clockwise
+        if reverse_spin:
+            angle = (360.0 - (angle % 360.0)) % 360.0
+        
+        # adjust so zero degrees is 'forward'
+        angle = (angle - forward_angle + 360.0) % 360.0
+        
         if angle >= min_angle and angle <= max_angle:
             if distance >= min_distance and distance <= max_distance:
                 radians = angle * pi / 180.0
@@ -142,29 +149,34 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-n", "--number", type=int, default=1, help = "Number of scans to collect")
     parser.add_argument("-s", "--sort", action='store_true', help="Sort the measurements by angle")
-    parser.add_argument("-a", "--min_angle", type=float, default=0, help="Minimum angle in degress (inclusive) to save")
-    parser.add_argument("-A", "--max_angle", type=float, default=360, help="Maximum angle in degrees (inclusive) to save")
-    parser.add_argument("-d", "--min_distance", type=float, default=sys.float_info.min, help="Minimum distance (inclusive) to save")
-    parser.add_argument("-D", "--max_distance", type=float, default=sys.float_info.max, help="Maximum distance (inclusive) to save")
-     
+    parser.add_argument("-a", "--min-angle", type=float, default=0, help="Minimum angle in degress (inclusive) to save")
+    parser.add_argument("-A", "--max-angle", type=float, default=360, help="Maximum angle in degrees (inclusive) to save")
+    parser.add_argument("-d", "--min-distance", type=float, default=sys.float_info.min, help="Minimum distance (inclusive) to save")
+    parser.add_argument("-D", "--max-distance", type=float, default=sys.float_info.max, help="Maximum distance (inclusive) to save")
+    parser.add_argument("-f", "--forward-angle", type=float, default=0.0, help="Forward angle - the angle facing 'forward'")
+    parser.add_argument("-r", "--reverse-spin", action='store_true', help="Reverse 'spin' of lidar")
+
     # Read arguments from command line
     args = parser.parse_args()
     
     help = []
-    if args.number <= 0:
-        help.append("-n/--number: must be positive.")
+    if args.number < 1:
+        help.append("-n/--number: must be >= 1.")
         
     if args.min_distance < 0:
-        help.append("-d/--min_distance must be non-negative")
+        help.append("-d/--min_distance must be >= 0")
 
     if args.max_distance <= 0:
-        help.append("-D/--max_distance must be positive")
+        help.append("-D/--max_distance must be > 0")
         
-    if args.min_angle < 0:
-        help.append("-a/--min_angle must be non-negative")
+    if args.min_angle < 0 or args.min_angle > 360:
+        help.append("-a/--min_angle must be 0 <= min_angle <= 360")
 
-    if args.max_angle <= 0:
-        help.append("-A/--max_angle must be positive")
+    if args.max_angle <= 0 or args.max_angle > 360:
+        help.append("-A/--max_angle must be 0 < max_angle <= 360")
+      
+    if args.forward_angle < 0 or args.forward_angle > 360:
+        help.append("-f/--forward_angle must be 0 <= forward_angle <= 360")
       
     if len(help) > 0:
         parser.print_help()
@@ -189,6 +201,8 @@ if __name__ == "__main__":
                                          max_angle=args.max_angle,
                                          min_distance=args.min_distance,
                                          max_distance=args.max_distance,
+                                         forward_angle=args.forward_angle,
+                                         reverse_spin=args.reverse_spin,
                                          sorted=args.sort)
             lidar_scans.append(filtered)
             count += 1
